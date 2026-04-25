@@ -15,6 +15,10 @@ use clap::{Parser, Subcommand};
 #[command(
     name = "uefibootmgrrs",
     about = "UEFI Boot Manager — manage boot entries, boot order, and ESP",
+    long_about = "UEFI Boot Manager — a CLI tool to list, create, edit, delete, \
+        enable/disable boot entries, set boot order and BootNext, \
+        and backup/restore EFI NVRAM variables.\n\n\
+        Requires administrator/root privileges to access EFI variables.",
     version,
     author
 )]
