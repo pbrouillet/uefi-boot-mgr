@@ -104,7 +104,8 @@ uefibootmgrrs tui
 |-----|--------|
 | `↑`/`↓` | Navigate entries |
 | `Enter` | View entry details |
-| `n` | Create new entry |
+| `n` | Create new entry (blank) |
+| `w` | Boot entry wizard (Windows/GRUB presets) |
 | `e` | Edit selected entry |
 | `d` | Delete selected entry |
 | `Space` | Toggle active/inactive |
@@ -179,10 +180,10 @@ src/
 cargo test --workspace
 ```
 
-Tests use `efivar::file_store()` (TOML-backed) to avoid requiring real EFI variables. 47 tests cover:
+Tests use `efivar::file_store()` (TOML-backed) to avoid requiring real EFI variables. 56 tests cover:
 - Core library (14): CRUD, boot order, backup/restore
 - CLI integration (16): All subcommands against file store
-- TUI state (13): Navigation, forms, delete confirm, reorder, backup
+- TUI state (22): Navigation, forms, delete confirm, reorder, backup, wizard templates
 - ESP parsing (4): Windows PowerShell JSON output parsing
 
 ## License

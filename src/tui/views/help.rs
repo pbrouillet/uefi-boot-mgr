@@ -8,7 +8,8 @@ pub fn draw(frame: &mut Frame, area: Rect) {
     let bindings = vec![
         ("↑/k, ↓/j", "Navigate entries"),
         ("Enter", "View entry details"),
-        ("n", "New boot entry"),
+        ("n", "New boot entry (blank)"),
+        ("w", "Boot entry wizard"),
         ("e", "Edit selected entry"),
         ("d", "Delete selected entry"),
         ("Space", "Toggle active/inactive"),

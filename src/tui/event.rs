@@ -3,7 +3,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::prelude::*;
 use std::time::Duration;
 
-use super::app::{App, FormField, View};
+use super::app::{App, FormField, View, WizardTemplate};
 use super::views;
 
 pub fn run_event_loop(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, app: &mut App) -> Result<()> {
@@ -40,6 +40,7 @@ fn handle_key(app: &mut App, key: KeyEvent) {
         View::BackupRestore => handle_backup_key(app, key),
         View::Help => handle_help_key(app, key),
         View::Confirm => handle_confirm_key(app, key),
+        View::Wizard => handle_wizard_key(app, key),
     }
 }
 
@@ -81,6 +82,7 @@ fn handle_entry_list_key(app: &mut App, key: KeyEvent) {
             }
         }
         KeyCode::Char('n') => app.open_create_form(),
+        KeyCode::Char('w') => app.open_wizard(),
         KeyCode::Char('e') => app.open_edit_form(),
         KeyCode::Char('d') => app.delete_selected(),
         KeyCode::Char(' ') => app.toggle_selected_active(),
@@ -163,6 +165,24 @@ fn handle_confirm_key(app: &mut App, key: KeyEvent) {
     match key.code {
         KeyCode::Char('y') | KeyCode::Enter => app.execute_confirm(),
         KeyCode::Char('n') | KeyCode::Esc => app.cancel_confirm(),
+        _ => {}
+    }
+}
+
+fn handle_wizard_key(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('q') => app.view = View::EntryList,
+        KeyCode::Up | KeyCode::Char('k') => {
+            if app.wizard_selected > 0 {
+                app.wizard_selected -= 1;
+            }
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            if app.wizard_selected + 1 < WizardTemplate::ALL.len() {
+                app.wizard_selected += 1;
+            }
+        }
+        KeyCode::Enter => app.apply_wizard_template(app.wizard_selected),
         _ => {}
     }
 }

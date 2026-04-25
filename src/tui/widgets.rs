@@ -14,6 +14,7 @@ pub fn draw_title_bar(frame: &mut Frame, area: Rect, app: &App) {
             super::app::View::BackupRestore => " BACKUP ",
             super::app::View::Help => " HELP ",
             super::app::View::Confirm => " CONFIRM ",
+            super::app::View::Wizard => " WIZARD ",
         }
     };
 

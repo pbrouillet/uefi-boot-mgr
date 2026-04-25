@@ -3,6 +3,7 @@ pub mod entry_detail;
 pub mod entry_form;
 pub mod backup;
 pub mod help;
+pub mod wizard;
 
 use ratatui::prelude::*;
 
@@ -44,6 +45,10 @@ pub fn draw(frame: &mut Frame, app: &App) {
         View::Confirm => {
             entry_list::draw(frame, chunks[1], app);
             widgets::draw_confirm(frame, chunks[1], app);
+        }
+        View::Wizard => {
+            entry_list::draw(frame, chunks[1], app);
+            wizard::draw(frame, chunks[1], app);
         }
     }
 

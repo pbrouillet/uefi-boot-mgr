@@ -10,6 +10,7 @@ pub enum View {
     BackupRestore,
     Help,
     Confirm,
+    Wizard,
 }
 
 /// Sub-mode for entry form
@@ -65,6 +66,66 @@ pub enum ConfirmAction {
     RestoreBackup(String),
 }
 
+/// Pre-defined boot entry templates for the wizard.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WizardTemplate {
+    Windows,
+    Ubuntu,
+    Fedora,
+    Arch,
+    Debian,
+    OpenSuse,
+    GenericGrub,
+}
+
+impl WizardTemplate {
+    pub const ALL: &[WizardTemplate] = &[
+        WizardTemplate::Windows,
+        WizardTemplate::Ubuntu,
+        WizardTemplate::Fedora,
+        WizardTemplate::Arch,
+        WizardTemplate::Debian,
+        WizardTemplate::OpenSuse,
+        WizardTemplate::GenericGrub,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            WizardTemplate::Windows => "Windows Boot Manager",
+            WizardTemplate::Ubuntu => "Ubuntu (shim)",
+            WizardTemplate::Fedora => "Fedora (shim)",
+            WizardTemplate::Arch => "Arch Linux",
+            WizardTemplate::Debian => "Debian (shim)",
+            WizardTemplate::OpenSuse => "openSUSE (shim)",
+            WizardTemplate::GenericGrub => "Generic GRUB",
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            WizardTemplate::Windows => "Windows Boot Manager",
+            WizardTemplate::Ubuntu => "Ubuntu",
+            WizardTemplate::Fedora => "Fedora",
+            WizardTemplate::Arch => "Arch Linux",
+            WizardTemplate::Debian => "Debian",
+            WizardTemplate::OpenSuse => "openSUSE",
+            WizardTemplate::GenericGrub => "GRUB",
+        }
+    }
+
+    pub fn loader(self) -> &'static str {
+        match self {
+            WizardTemplate::Windows => r"\EFI\Microsoft\Boot\bootmgfw.efi",
+            WizardTemplate::Ubuntu => r"\EFI\ubuntu\shimx64.efi",
+            WizardTemplate::Fedora => r"\EFI\fedora\shimx64.efi",
+            WizardTemplate::Arch => r"\EFI\arch\grubx64.efi",
+            WizardTemplate::Debian => r"\EFI\debian\shimx64.efi",
+            WizardTemplate::OpenSuse => r"\EFI\opensuse\shimx64.efi",
+            WizardTemplate::GenericGrub => r"\EFI\BOOT\grubx64.efi",
+        }
+    }
+}
+
 /// Main application state
 pub struct App {
     pub mgr: BootManager,
@@ -99,6 +160,9 @@ pub struct App {
 
     // Confirm dialog
     pub confirm: Option<ConfirmState>,
+
+    // Wizard state
+    pub wizard_selected: usize,
 }
 
 impl App {
@@ -124,6 +188,7 @@ impl App {
             backup_path: String::new(),
             reorder_mode: false,
             confirm: None,
+            wizard_selected: 0,
         }
     }
 
@@ -386,6 +451,23 @@ impl App {
                 self.refresh_entries();
             }
             Err(e) => self.set_error(format!("Update failed: {e}")),
+        }
+    }
+
+    pub fn open_wizard(&mut self) {
+        self.wizard_selected = 0;
+        self.view = View::Wizard;
+    }
+
+    pub fn apply_wizard_template(&mut self, idx: usize) {
+        if let Some(template) = WizardTemplate::ALL.get(idx) {
+            self.form_mode = FormMode::Create;
+            self.form_field = FormField::Description;
+            self.form_description = template.description().to_string();
+            self.form_loader = template.loader().to_string();
+            self.form_partition.clear();
+            self.form_edit_id = None;
+            self.view = View::EntryForm;
         }
     }
 

@@ -231,3 +231,126 @@ fn tui_form_field_navigation() {
     assert_eq!(FormField::Loader.prev(), FormField::Description);
     assert_eq!(FormField::Partition.prev(), FormField::Loader);
 }
+
+// --- Wizard tests ---
+
+#[test]
+fn tui_wizard_open() {
+    let mut app = setup_app("wizard-open");
+    assert_eq!(app.view, uefibootmgrrs::tui::app::View::EntryList);
+
+    app.open_wizard();
+    assert_eq!(app.view, uefibootmgrrs::tui::app::View::Wizard);
+    assert_eq!(app.wizard_selected, 0);
+}
+
+#[test]
+fn tui_wizard_navigate() {
+    use uefibootmgrrs::tui::app::WizardTemplate;
+
+    let mut app = setup_app("wizard-nav");
+    app.open_wizard();
+
+    // Move down to last
+    for _ in 0..WizardTemplate::ALL.len() - 1 {
+        app.wizard_selected += 1;
+    }
+    assert_eq!(app.wizard_selected, WizardTemplate::ALL.len() - 1);
+
+    // Can't go past end
+    let max = WizardTemplate::ALL.len() - 1;
+    assert_eq!(app.wizard_selected, max);
+
+    // Move back up
+    app.wizard_selected = 0;
+    assert_eq!(app.wizard_selected, 0);
+}
+
+#[test]
+fn tui_wizard_apply_windows() {
+    let mut app = setup_app("wizard-win");
+    app.open_wizard();
+
+    // Select Windows (index 0)
+    app.apply_wizard_template(0);
+
+    assert_eq!(app.view, uefibootmgrrs::tui::app::View::EntryForm);
+    assert_eq!(app.form_mode, uefibootmgrrs::tui::app::FormMode::Create);
+    assert_eq!(app.form_description, "Windows Boot Manager");
+    assert_eq!(app.form_loader, r"\EFI\Microsoft\Boot\bootmgfw.efi");
+    assert!(app.form_partition.is_empty());
+    assert!(app.form_edit_id.is_none());
+}
+
+#[test]
+fn tui_wizard_apply_ubuntu() {
+    let mut app = setup_app("wizard-ubu");
+    app.open_wizard();
+
+    // Select Ubuntu (index 1)
+    app.apply_wizard_template(1);
+
+    assert_eq!(app.form_description, "Ubuntu");
+    assert_eq!(app.form_loader, r"\EFI\ubuntu\shimx64.efi");
+}
+
+#[test]
+fn tui_wizard_apply_fedora() {
+    let mut app = setup_app("wizard-fed");
+    app.open_wizard();
+    app.apply_wizard_template(2);
+    assert_eq!(app.form_description, "Fedora");
+    assert_eq!(app.form_loader, r"\EFI\fedora\shimx64.efi");
+}
+
+#[test]
+fn tui_wizard_apply_generic_grub() {
+    use uefibootmgrrs::tui::app::WizardTemplate;
+
+    let mut app = setup_app("wizard-grub");
+    app.open_wizard();
+
+    let last = WizardTemplate::ALL.len() - 1;
+    app.apply_wizard_template(last);
+
+    assert_eq!(app.form_description, "GRUB");
+    assert_eq!(app.form_loader, r"\EFI\BOOT\grubx64.efi");
+}
+
+#[test]
+fn tui_wizard_cancel() {
+    let mut app = setup_app("wizard-cancel");
+    app.open_wizard();
+    assert_eq!(app.view, uefibootmgrrs::tui::app::View::Wizard);
+
+    // Esc cancels back to list
+    app.view = uefibootmgrrs::tui::app::View::EntryList;
+    assert_eq!(app.view, uefibootmgrrs::tui::app::View::EntryList);
+}
+
+#[test]
+fn tui_wizard_submit_creates_entry() {
+    let mut app = setup_app("wizard-submit");
+    assert_eq!(app.entries.len(), 2);
+
+    app.open_wizard();
+    app.apply_wizard_template(0); // Windows
+
+    // Now in EntryForm with pre-filled values — submit it
+    app.submit_form();
+
+    assert_eq!(app.view, uefibootmgrrs::tui::app::View::EntryList);
+    assert_eq!(app.entries.len(), 3);
+    assert_eq!(app.entries[2].description, "Windows Boot Manager");
+}
+
+#[test]
+fn tui_wizard_all_templates_valid() {
+    use uefibootmgrrs::tui::app::WizardTemplate;
+
+    for (i, template) in WizardTemplate::ALL.iter().enumerate() {
+        assert!(!template.label().is_empty(), "template {i} has empty label");
+        assert!(!template.description().is_empty(), "template {i} has empty description");
+        assert!(template.loader().ends_with(".efi"), "template {i} loader should end with .efi");
+    }
+}
