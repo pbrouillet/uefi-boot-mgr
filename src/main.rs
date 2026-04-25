@@ -71,6 +71,20 @@ fn main() -> anyhow::Result<()> {
         Commands::Restore { ref file, force } => {
             cli::restore::run(&mut mgr, file, force)?;
         }
+        Commands::Tui => {
+            uefibootmgrrs::tui::run_tui(mgr)?;
+        }
+        Commands::Esp { ref action } => match action {
+            cli::EspAction::List => cli::esp::run_list(cli.json)?,
+            cli::EspAction::Set {
+                disk,
+                partition,
+            } => cli::esp::run_set(disk, *partition)?,
+            cli::EspAction::Clear {
+                disk,
+                partition,
+            } => cli::esp::run_clear(disk, *partition)?,
+        },
     }
 
     Ok(())

@@ -8,6 +8,7 @@ pub mod next;
 pub mod toggle;
 pub mod backup;
 pub mod restore;
+pub mod esp;
 
 use clap::{Parser, Subcommand};
 
@@ -127,5 +128,38 @@ pub enum Commands {
         /// Skip confirmation prompt
         #[arg(short, long)]
         force: bool,
+    },
+
+    /// Launch interactive TUI mode
+    Tui,
+
+    /// Manage ESP partition flags
+    Esp {
+        #[command(subcommand)]
+        action: EspAction,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum EspAction {
+    /// List all GPT partitions
+    List,
+
+    /// Set a partition's type GUID to ESP
+    Set {
+        /// Disk identifier (e.g., "Disk 0" on Windows, "/dev/sda" on Linux)
+        disk: String,
+
+        /// Partition number
+        partition: u32,
+    },
+
+    /// Clear the ESP flag (revert to Basic Data)
+    Clear {
+        /// Disk identifier (e.g., "Disk 0" on Windows, "/dev/sda" on Linux)
+        disk: String,
+
+        /// Partition number
+        partition: u32,
     },
 }
