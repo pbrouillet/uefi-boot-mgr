@@ -1,4 +1,4 @@
-use comfy_table::Table;
+use comfy_table::{Table, presets::UTF8_FULL_CONDENSED};
 
 use crate::core::esp;
 use crate::error::AppError;
@@ -18,7 +18,9 @@ pub fn run_list(json: bool) -> Result<(), AppError> {
     }
 
     let mut table = Table::new();
-    table.set_header(vec!["Disk", "Part#", "Type GUID", "ESP", "Label", "Size", "Mount"]);
+    table
+        .load_preset(UTF8_FULL_CONDENSED)
+        .set_header(vec!["Disk", "Part#", "Type GUID", "ESP", "Label", "Size", "Mount"]);
 
     for p in &partitions {
         let esp_marker = if p.is_esp { "✓" } else { "" };

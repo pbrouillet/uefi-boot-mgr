@@ -1,4 +1,4 @@
-use comfy_table::{Cell, Color, Table};
+use comfy_table::{Cell, Color, Table, presets::UTF8_FULL_CONDENSED};
 
 use crate::core::BootManager;
 use crate::error::AppError;
@@ -20,7 +20,9 @@ pub fn run(mgr: &BootManager, json: bool) -> Result<(), AppError> {
     }
 
     let mut table = Table::new();
-    table.set_header(vec!["", "ID", "Description", "Active", "File Path"]);
+    table
+        .load_preset(UTF8_FULL_CONDENSED)
+        .set_header(vec!["", "ID", "Description", "Active", "File Path"]);
 
     for entry in &entries {
         let mut marker = String::new();

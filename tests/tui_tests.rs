@@ -36,7 +36,6 @@ fn sample_entry(desc: &str, loader: &str) -> BootEntry {
 }
 
 fn setup_app(suffix: &str) -> uefibootmgrrs::tui::app::App {
-    use efivar::boot::BootVarWriter as _;
     let mut store = test_store(suffix);
     store
         .add_boot_entry(0, sample_entry("Windows", r"\EFI\Microsoft\Boot\bootmgfw.efi"))
