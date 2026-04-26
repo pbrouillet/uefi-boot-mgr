@@ -15,6 +15,7 @@ pub fn draw(frame: &mut Frame, area: Rect) {
         ("Space", "Toggle active/inactive"),
         ("o", "Reorder mode (↑↓ to move)"),
         ("b", "Backup entries to file"),
+        ("B", "Scan ESP bootloaders"),
         ("r", "Restore entries from file"),
         ("R", "Refresh entries"),
         ("?", "Show this help"),

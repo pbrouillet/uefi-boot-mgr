@@ -11,6 +11,7 @@ pub enum View {
     Help,
     Confirm,
     Wizard,
+    Bootloader,
 }
 
 /// Sub-mode for entry form
@@ -176,6 +177,10 @@ pub struct App {
     // Wizard state
     pub wizard_selected: usize,
     pub wizard_templates: Vec<WizardTemplate>,
+
+    // Bootloader scan results
+    pub bootloader_esp_path: Option<String>,
+    pub bootloader_entries: Vec<crate::core::esp::BootloaderInfo>,
 }
 
 impl App {
@@ -203,6 +208,8 @@ impl App {
             confirm: None,
             wizard_selected: 0,
             wizard_templates: WizardTemplate::load(),
+            bootloader_esp_path: None,
+            bootloader_entries: Vec::new(),
         }
     }
 
@@ -489,6 +496,28 @@ impl App {
         self.backup_mode = BackupMode::Backup;
         self.backup_path = "backup.json".to_string();
         self.view = View::BackupRestore;
+    }
+
+    pub fn open_bootloader_scan(&mut self) {
+        use crate::core::esp;
+        match esp::find_esp_mount() {
+            Ok(root) => {
+                self.bootloader_entries = esp::scan_esp_bootloaders(&root);
+                self.bootloader_esp_path = Some(root.display().to_string());
+                if self.bootloader_entries.is_empty() {
+                    self.set_status("No known bootloaders found on ESP");
+                } else {
+                    self.set_status(format!(
+                        "Found {} bootloader(s) on ESP",
+                        self.bootloader_entries.len()
+                    ));
+                }
+                self.view = View::Bootloader;
+            }
+            Err(e) => {
+                self.set_error(format!("ESP scan failed: {e}"));
+            }
+        }
     }
 
     pub fn open_restore(&mut self) {

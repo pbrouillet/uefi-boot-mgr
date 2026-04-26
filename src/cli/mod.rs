@@ -162,4 +162,7 @@ pub enum EspAction {
         /// Partition number
         partition: u32,
     },
+
+    /// Show bootloaders found on the ESP
+    Bootloader,
 }

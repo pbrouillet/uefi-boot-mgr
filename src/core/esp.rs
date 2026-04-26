@@ -304,6 +304,221 @@ fn format_size(bytes: u64) -> String {
     }
 }
 
+// --- ESP bootloader scanning ---
+
+/// Information about a bootloader found on the ESP.
+#[derive(Debug, Clone, Serialize)]
+pub struct BootloaderInfo {
+    /// Path relative to ESP root (e.g., `\EFI\BOOT\BOOTX64.EFI`)
+    pub path: String,
+    /// Identified OS or role (e.g., "UEFI Default Fallback", "Windows", "Ubuntu")
+    pub identity: String,
+    /// Whether this is the UEFI default fallback bootloader
+    pub is_default: bool,
+    /// File size in human-readable form
+    pub size: Option<String>,
+    /// Last modified timestamp
+    pub modified: Option<String>,
+}
+
+/// Well-known EFI bootloader paths and their identities.
+const KNOWN_LOADERS: &[(&str, &str, bool)] = &[
+    (r"EFI\BOOT\BOOTX64.EFI", "UEFI Default Fallback (x64)", true),
+    (r"EFI\BOOT\BOOTIA32.EFI", "UEFI Default Fallback (IA-32)", true),
+    (r"EFI\BOOT\BOOTAA64.EFI", "UEFI Default Fallback (ARM64)", true),
+    (r"EFI\Microsoft\Boot\bootmgfw.efi", "Windows Boot Manager", false),
+    (r"EFI\ubuntu\shimx64.efi", "Ubuntu (shim)", false),
+    (r"EFI\ubuntu\grubx64.efi", "Ubuntu (GRUB)", false),
+    (r"EFI\fedora\shimx64.efi", "Fedora (shim)", false),
+    (r"EFI\fedora\grubx64.efi", "Fedora (GRUB)", false),
+    (r"EFI\debian\shimx64.efi", "Debian (shim)", false),
+    (r"EFI\debian\grubx64.efi", "Debian (GRUB)", false),
+    (r"EFI\arch\grubx64.efi", "Arch Linux (GRUB)", false),
+    (r"EFI\opensuse\shimx64.efi", "openSUSE (shim)", false),
+    (r"EFI\opensuse\grubx64.efi", "openSUSE (GRUB)", false),
+    (r"EFI\centos\shimx64.efi", "CentOS (shim)", false),
+    (r"EFI\rocky\shimx64.efi", "Rocky Linux (shim)", false),
+    (r"EFI\systemd\systemd-bootx64.efi", "systemd-boot", false),
+    (r"EFI\refind\refind_x64.efi", "rEFInd", false),
+];
+
+/// Find the ESP mount point on the current system.
+pub fn find_esp_mount() -> Result<std::path::PathBuf, AppError> {
+    #[cfg(target_os = "windows")]
+    {
+        find_esp_mount_windows()
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        find_esp_mount_linux()
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    {
+        Err(AppError::Efi {
+            message: "ESP bootloader scanning is not supported on this platform".to_string(),
+        })
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn find_esp_mount_windows() -> Result<std::path::PathBuf, AppError> {
+    // Try to find an already-mounted ESP partition via Get-Partition
+    let output = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            r#"Get-Partition | Where-Object { $_.GptType -eq '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}' } | Select-Object -ExpandProperty AccessPaths | ConvertTo-Json -Compress"#,
+        ])
+        .output()
+        .map_err(|e| AppError::Efi {
+            message: format!("Failed to run PowerShell: {e}"),
+        })?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let trimmed = stdout.trim();
+        if !trimmed.is_empty() {
+            // Could be a JSON array of strings or a single string
+            if let Ok(paths) = serde_json::from_str::<Vec<String>>(trimmed) {
+                for path in &paths {
+                    let p = std::path::Path::new(path);
+                    if p.join("EFI").exists() {
+                        return Ok(p.to_path_buf());
+                    }
+                }
+                // If none has EFI dir visible, return the first with a drive letter
+                for path in &paths {
+                    if path.len() >= 2 && path.as_bytes()[1] == b':' {
+                        return Ok(std::path::PathBuf::from(path));
+                    }
+                }
+            } else if let Ok(path) = serde_json::from_str::<String>(trimmed) {
+                return Ok(std::path::PathBuf::from(path));
+            }
+        }
+    }
+
+    // Fallback: try mountvol to mount ESP temporarily
+    let output = Command::new("mountvol")
+        .args(["S:", "/S"])
+        .output()
+        .map_err(|e| AppError::Efi {
+            message: format!("Failed to run mountvol: {e}"),
+        })?;
+
+    if output.status.success() {
+        let path = std::path::PathBuf::from("S:\\");
+        if path.join("EFI").exists() {
+            return Ok(path);
+        }
+    }
+
+    Err(AppError::Efi {
+        message: "Could not find or mount the ESP partition. Try running as administrator.".to_string(),
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn find_esp_mount_linux() -> Result<std::path::PathBuf, AppError> {
+    for candidate in &["/boot/efi", "/efi", "/boot"] {
+        let path = std::path::Path::new(candidate);
+        if path.join("EFI").exists() || path.join("efi").exists() {
+            return Ok(path.to_path_buf());
+        }
+    }
+
+    // Try findmnt as fallback
+    let output = Command::new("findmnt")
+        .args(["-n", "-o", "TARGET", "-t", "vfat"])
+        .output();
+
+    if let Ok(output) = output {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                let path = std::path::Path::new(line.trim());
+                if path.join("EFI").exists() || path.join("efi").exists() {
+                    return Ok(path.to_path_buf());
+                }
+            }
+        }
+    }
+
+    Err(AppError::Efi {
+        message: "Could not find mounted ESP. Check that it is mounted at /boot/efi or /efi.".to_string(),
+    })
+}
+
+/// Scan the ESP for known bootloaders.
+pub fn scan_esp_bootloaders(esp_root: &std::path::Path) -> Vec<BootloaderInfo> {
+    let mut found = Vec::new();
+
+    for &(rel_path, identity, is_default) in KNOWN_LOADERS {
+        // Normalize path separators for the current OS
+        let native_path = rel_path.replace('\\', &std::path::MAIN_SEPARATOR.to_string());
+        let full = esp_root.join(&native_path);
+
+        // Try case-insensitive match on case-sensitive filesystems
+        let file_path = if full.exists() {
+            Some(full)
+        } else {
+            find_case_insensitive(&esp_root, rel_path)
+        };
+
+        if let Some(path) = file_path {
+            let meta = std::fs::metadata(&path).ok();
+            let size = meta.as_ref().map(|m| format_size(m.len()));
+            let modified = meta
+                .as_ref()
+                .and_then(|m| m.modified().ok())
+                .map(|t| {
+                    let dt: chrono::DateTime<chrono::Local> = t.into();
+                    dt.format("%Y-%m-%d %H:%M:%S").to_string()
+                });
+
+            found.push(BootloaderInfo {
+                path: format!("\\{}", rel_path.replace('/', "\\")),
+                identity: identity.to_string(),
+                is_default,
+                size,
+                modified,
+            });
+        }
+    }
+
+    found
+}
+
+/// Try to find a file with case-insensitive path matching.
+/// This handles Linux ESP partitions where EFI directory casing varies.
+fn find_case_insensitive(root: &std::path::Path, rel_path: &str) -> Option<std::path::PathBuf> {
+    let components: Vec<&str> = rel_path.split('\\').collect();
+    let mut current = root.to_path_buf();
+
+    for component in &components {
+        let target_lower = component.to_lowercase();
+        let mut matched = false;
+
+        if let Ok(entries) = std::fs::read_dir(&current) {
+            for entry in entries.flatten() {
+                if entry.file_name().to_string_lossy().to_lowercase() == target_lower {
+                    current = entry.path();
+                    matched = true;
+                    break;
+                }
+            }
+        }
+
+        if !matched {
+            return None;
+        }
+    }
+
+    if current.exists() { Some(current) } else { None }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -346,5 +561,64 @@ mod tests {
     fn test_parse_windows_empty() {
         let parts = parse_windows_partitions("").unwrap();
         assert!(parts.is_empty());
+    }
+
+    #[test]
+    fn test_scan_esp_bootloaders_mock() {
+        let tmp = std::env::temp_dir().join(format!("esp-scan-test-{}", std::process::id()));
+        std::fs::create_dir_all(tmp.join("EFI").join("BOOT")).unwrap();
+        std::fs::create_dir_all(tmp.join("EFI").join("Microsoft").join("Boot")).unwrap();
+
+        // Create fake bootloader files
+        std::fs::write(
+            tmp.join("EFI").join("BOOT").join("BOOTX64.EFI"),
+            b"fake-efi-binary",
+        ).unwrap();
+        std::fs::write(
+            tmp.join("EFI").join("Microsoft").join("Boot").join("bootmgfw.efi"),
+            b"fake-windows-bootmgr",
+        ).unwrap();
+
+        let results = scan_esp_bootloaders(&tmp);
+
+        assert!(results.len() >= 2, "expected at least 2 loaders, got {}", results.len());
+
+        let default = results.iter().find(|r| r.identity.contains("Default Fallback"));
+        assert!(default.is_some(), "should find UEFI default fallback");
+        let default = default.unwrap();
+        assert!(default.is_default);
+        assert!(default.size.is_some());
+        assert!(default.modified.is_some());
+
+        let windows = results.iter().find(|r| r.identity.contains("Windows"));
+        assert!(windows.is_some(), "should find Windows boot manager");
+        assert!(!windows.unwrap().is_default);
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_scan_esp_empty_dir() {
+        let tmp = std::env::temp_dir().join(format!("esp-scan-empty-{}", std::process::id()));
+        std::fs::create_dir_all(&tmp).unwrap();
+
+        let results = scan_esp_bootloaders(&tmp);
+        assert!(results.is_empty());
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_known_loaders_exhaustive() {
+        // Verify all KNOWN_LOADERS have non-empty fields
+        for &(path, identity, _) in KNOWN_LOADERS {
+            assert!(!path.is_empty(), "loader path should not be empty");
+            assert!(!identity.is_empty(), "identity should not be empty");
+            assert!(
+                path.to_lowercase().ends_with(".efi"),
+                "{path} should end with .efi"
+            );
+        }
     }
 }

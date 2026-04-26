@@ -41,6 +41,7 @@ fn handle_key(app: &mut App, key: KeyEvent) {
         View::Help => handle_help_key(app, key),
         View::Confirm => handle_confirm_key(app, key),
         View::Wizard => handle_wizard_key(app, key),
+        View::Bootloader => handle_bootloader_key(app, key),
     }
 }
 
@@ -91,6 +92,7 @@ fn handle_entry_list_key(app: &mut App, key: KeyEvent) {
             app.set_status("Reorder mode: ↑↓ to move, Esc to finish");
         }
         KeyCode::Char('b') => app.open_backup(),
+        KeyCode::Char('B') => app.open_bootloader_scan(),
         KeyCode::Char('r') => app.open_restore(),
         KeyCode::Char('R') => {
             app.refresh_entries();
@@ -183,6 +185,13 @@ fn handle_wizard_key(app: &mut App, key: KeyEvent) {
             }
         }
         KeyCode::Enter => app.apply_wizard_template(app.wizard_selected),
+        _ => {}
+    }
+}
+
+fn handle_bootloader_key(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('q') => app.view = View::EntryList,
         _ => {}
     }
 }

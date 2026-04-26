@@ -111,6 +111,7 @@ uefibootmgrrs tui
 | `Space` | Toggle active/inactive |
 | `o` | Toggle reorder mode (then `↑`/`↓` to move) |
 | `b` | Backup to file |
+| `B` | Scan ESP bootloaders |
 | `r` | Restore from file |
 | `?` | Help overlay |
 | `q` | Quit |
@@ -121,6 +122,10 @@ uefibootmgrrs tui
 # List all GPT partitions
 uefibootmgrrs esp list
 uefibootmgrrs esp list --json
+
+# Scan ESP for known bootloaders
+uefibootmgrrs esp bootloader
+uefibootmgrrs esp bootloader --json
 
 # Set a partition as ESP
 uefibootmgrrs esp set "0" 1          # Windows: disk 0, partition 1

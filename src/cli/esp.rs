@@ -52,3 +52,42 @@ pub fn run_clear(disk: &str, partition: u32) -> Result<(), AppError> {
     println!("Type GUID → {}", esp::BASIC_DATA_TYPE_GUID);
     Ok(())
 }
+
+pub fn run_bootloader(json: bool) -> Result<(), AppError> {
+    let esp_root = esp::find_esp_mount()?;
+    let loaders = esp::scan_esp_bootloaders(&esp_root);
+
+    if json {
+        let output = serde_json::to_string_pretty(&loaders)?;
+        println!("{output}");
+        return Ok(());
+    }
+
+    println!("ESP mount: {}\n", esp_root.display());
+
+    if loaders.is_empty() {
+        println!("No known bootloaders found on the ESP.");
+        return Ok(());
+    }
+
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL_CONDENSED)
+        .set_header(vec!["", "Identity", "Path", "Size", "Modified"]);
+
+    for loader in &loaders {
+        let marker = if loader.is_default { "★" } else { "" };
+        table.add_row(vec![
+            marker,
+            &loader.identity,
+            &loader.path,
+            loader.size.as_deref().unwrap_or("-"),
+            loader.modified.as_deref().unwrap_or("-"),
+        ]);
+    }
+
+    println!("{table}");
+    println!();
+    println!("  ★ = UEFI default fallback bootloader");
+    Ok(())
+}

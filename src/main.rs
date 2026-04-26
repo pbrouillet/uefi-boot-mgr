@@ -84,6 +84,7 @@ fn main() -> anyhow::Result<()> {
                 disk,
                 partition,
             } => cli::esp::run_clear(disk, *partition)?,
+            cli::EspAction::Bootloader => cli::esp::run_bootloader(cli.json)?,
         },
     }
 

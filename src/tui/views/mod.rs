@@ -4,6 +4,7 @@ pub mod entry_form;
 pub mod backup;
 pub mod help;
 pub mod wizard;
+pub mod bootloader;
 
 use ratatui::prelude::*;
 
@@ -49,6 +50,10 @@ pub fn draw(frame: &mut Frame, app: &App) {
         View::Wizard => {
             entry_list::draw(frame, chunks[1], app);
             wizard::draw(frame, chunks[1], app);
+        }
+        View::Bootloader => {
+            entry_list::draw(frame, chunks[1], app);
+            bootloader::draw(frame, chunks[1], app);
         }
     }
 
