@@ -66,63 +66,75 @@ pub enum ConfirmAction {
     RestoreBackup(String),
 }
 
-/// Pre-defined boot entry templates for the wizard.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WizardTemplate {
-    Windows,
-    Ubuntu,
-    Fedora,
-    Arch,
-    Debian,
-    OpenSuse,
-    GenericGrub,
+/// Pre-defined boot entry template for the wizard.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct WizardTemplate {
+    pub label: String,
+    pub description: String,
+    pub loader: String,
 }
 
 impl WizardTemplate {
-    pub const ALL: &[WizardTemplate] = &[
-        WizardTemplate::Windows,
-        WizardTemplate::Ubuntu,
-        WizardTemplate::Fedora,
-        WizardTemplate::Arch,
-        WizardTemplate::Debian,
-        WizardTemplate::OpenSuse,
-        WizardTemplate::GenericGrub,
-    ];
-
-    pub fn label(self) -> &'static str {
-        match self {
-            WizardTemplate::Windows => "Windows Boot Manager",
-            WizardTemplate::Ubuntu => "Ubuntu (shim)",
-            WizardTemplate::Fedora => "Fedora (shim)",
-            WizardTemplate::Arch => "Arch Linux",
-            WizardTemplate::Debian => "Debian (shim)",
-            WizardTemplate::OpenSuse => "openSUSE (shim)",
-            WizardTemplate::GenericGrub => "Generic GRUB",
-        }
+    /// Built-in defaults used when templates.json is missing or unreadable.
+    pub fn defaults() -> Vec<WizardTemplate> {
+        vec![
+            WizardTemplate {
+                label: "Windows Boot Manager".into(),
+                description: "Windows Boot Manager".into(),
+                loader: r"\EFI\Microsoft\Boot\bootmgfw.efi".into(),
+            },
+            WizardTemplate {
+                label: "Ubuntu (shim)".into(),
+                description: "Ubuntu".into(),
+                loader: r"\EFI\ubuntu\shimx64.efi".into(),
+            },
+            WizardTemplate {
+                label: "Fedora (shim)".into(),
+                description: "Fedora".into(),
+                loader: r"\EFI\fedora\shimx64.efi".into(),
+            },
+            WizardTemplate {
+                label: "Arch Linux".into(),
+                description: "Arch Linux".into(),
+                loader: r"\EFI\arch\grubx64.efi".into(),
+            },
+            WizardTemplate {
+                label: "Debian (shim)".into(),
+                description: "Debian".into(),
+                loader: r"\EFI\debian\shimx64.efi".into(),
+            },
+            WizardTemplate {
+                label: "openSUSE (shim)".into(),
+                description: "openSUSE".into(),
+                loader: r"\EFI\opensuse\shimx64.efi".into(),
+            },
+            WizardTemplate {
+                label: "Generic GRUB".into(),
+                description: "GRUB".into(),
+                loader: r"\EFI\BOOT\grubx64.efi".into(),
+            },
+        ]
     }
 
-    pub fn description(self) -> &'static str {
-        match self {
-            WizardTemplate::Windows => "Windows Boot Manager",
-            WizardTemplate::Ubuntu => "Ubuntu",
-            WizardTemplate::Fedora => "Fedora",
-            WizardTemplate::Arch => "Arch Linux",
-            WizardTemplate::Debian => "Debian",
-            WizardTemplate::OpenSuse => "openSUSE",
-            WizardTemplate::GenericGrub => "GRUB",
+    /// Load templates from `templates.json` next to the executable.
+    /// Falls back to built-in defaults if the file is missing or invalid.
+    pub fn load() -> Vec<WizardTemplate> {
+        if let Ok(exe) = std::env::current_exe() {
+            let path = exe.parent().map(|p| p.join("templates.json"));
+            if let Some(path) = path {
+                if let Ok(contents) = std::fs::read_to_string(&path) {
+                    if let Ok(templates) = serde_json::from_str::<Vec<WizardTemplate>>(&contents) {
+                        if !templates.is_empty() {
+                            tracing::info!("Loaded {} wizard templates from {}", templates.len(), path.display());
+                            return templates;
+                        }
+                    } else {
+                        tracing::warn!("Failed to parse {}, using defaults", path.display());
+                    }
+                }
+            }
         }
-    }
-
-    pub fn loader(self) -> &'static str {
-        match self {
-            WizardTemplate::Windows => r"\EFI\Microsoft\Boot\bootmgfw.efi",
-            WizardTemplate::Ubuntu => r"\EFI\ubuntu\shimx64.efi",
-            WizardTemplate::Fedora => r"\EFI\fedora\shimx64.efi",
-            WizardTemplate::Arch => r"\EFI\arch\grubx64.efi",
-            WizardTemplate::Debian => r"\EFI\debian\shimx64.efi",
-            WizardTemplate::OpenSuse => r"\EFI\opensuse\shimx64.efi",
-            WizardTemplate::GenericGrub => r"\EFI\BOOT\grubx64.efi",
-        }
+        Self::defaults()
     }
 }
 
@@ -163,6 +175,7 @@ pub struct App {
 
     // Wizard state
     pub wizard_selected: usize,
+    pub wizard_templates: Vec<WizardTemplate>,
 }
 
 impl App {
@@ -189,6 +202,7 @@ impl App {
             reorder_mode: false,
             confirm: None,
             wizard_selected: 0,
+            wizard_templates: WizardTemplate::load(),
         }
     }
 
@@ -460,11 +474,11 @@ impl App {
     }
 
     pub fn apply_wizard_template(&mut self, idx: usize) {
-        if let Some(template) = WizardTemplate::ALL.get(idx) {
+        if let Some(template) = self.wizard_templates.get(idx) {
             self.form_mode = FormMode::Create;
             self.form_field = FormField::Description;
-            self.form_description = template.description().to_string();
-            self.form_loader = template.loader().to_string();
+            self.form_description = template.description.clone();
+            self.form_loader = template.loader.clone();
             self.form_partition.clear();
             self.form_edit_id = None;
             self.view = View::EntryForm;

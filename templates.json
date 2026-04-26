@@ -1,0 +1,37 @@
+[
+  {
+    "label": "Windows Boot Manager",
+    "description": "Windows Boot Manager",
+    "loader": "\\EFI\\Microsoft\\Boot\\bootmgfw.efi"
+  },
+  {
+    "label": "Ubuntu (shim)",
+    "description": "Ubuntu",
+    "loader": "\\EFI\\ubuntu\\shimx64.efi"
+  },
+  {
+    "label": "Fedora (shim)",
+    "description": "Fedora",
+    "loader": "\\EFI\\fedora\\shimx64.efi"
+  },
+  {
+    "label": "Arch Linux",
+    "description": "Arch Linux",
+    "loader": "\\EFI\\arch\\grubx64.efi"
+  },
+  {
+    "label": "Debian (shim)",
+    "description": "Debian",
+    "loader": "\\EFI\\debian\\shimx64.efi"
+  },
+  {
+    "label": "openSUSE (shim)",
+    "description": "openSUSE",
+    "loader": "\\EFI\\opensuse\\shimx64.efi"
+  },
+  {
+    "label": "Generic GRUB",
+    "description": "GRUB",
+    "loader": "\\EFI\\BOOT\\grubx64.efi"
+  }
+]

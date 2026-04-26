@@ -1,13 +1,13 @@
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState};
 
-use crate::tui::app::{App, WizardTemplate};
+use crate::tui::app::App;
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     let popup = centered_popup(area, 55, 60);
     frame.render_widget(Clear, popup);
 
-    let items: Vec<ListItem> = WizardTemplate::ALL
+    let items: Vec<ListItem> = app.wizard_templates
         .iter()
         .enumerate()
         .map(|(i, t)| {
@@ -19,7 +19,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
             };
             ListItem::new(Line::from(vec![
                 Span::styled(marker, style),
-                Span::styled(t.label(), style),
+                Span::styled(t.label.as_str(), style),
             ]))
         })
         .collect();
@@ -46,15 +46,15 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_stateful_widget(list, inner[0], &mut list_state);
 
     // Preview of selected template
-    if let Some(template) = WizardTemplate::ALL.get(app.wizard_selected) {
+    if let Some(template) = app.wizard_templates.get(app.wizard_selected) {
         let preview = ratatui::widgets::Paragraph::new(vec![
             Line::from(vec![
                 Span::styled("Desc:   ", Style::default().fg(Color::DarkGray)),
-                Span::raw(template.description()),
+                Span::raw(template.description.as_str()),
             ]),
             Line::from(vec![
                 Span::styled("Loader: ", Style::default().fg(Color::DarkGray)),
-                Span::raw(template.loader()),
+                Span::raw(template.loader.as_str()),
             ]),
         ])
         .block(

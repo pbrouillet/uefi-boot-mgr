@@ -246,20 +246,16 @@ fn tui_wizard_open() {
 
 #[test]
 fn tui_wizard_navigate() {
-    use uefibootmgrrs::tui::app::WizardTemplate;
-
     let mut app = setup_app("wizard-nav");
     app.open_wizard();
 
+    let count = app.wizard_templates.len();
+
     // Move down to last
-    for _ in 0..WizardTemplate::ALL.len() - 1 {
+    for _ in 0..count - 1 {
         app.wizard_selected += 1;
     }
-    assert_eq!(app.wizard_selected, WizardTemplate::ALL.len() - 1);
-
-    // Can't go past end
-    let max = WizardTemplate::ALL.len() - 1;
-    assert_eq!(app.wizard_selected, max);
+    assert_eq!(app.wizard_selected, count - 1);
 
     // Move back up
     app.wizard_selected = 0;
@@ -305,12 +301,10 @@ fn tui_wizard_apply_fedora() {
 
 #[test]
 fn tui_wizard_apply_generic_grub() {
-    use uefibootmgrrs::tui::app::WizardTemplate;
-
     let mut app = setup_app("wizard-grub");
     app.open_wizard();
 
-    let last = WizardTemplate::ALL.len() - 1;
+    let last = app.wizard_templates.len() - 1;
     app.apply_wizard_template(last);
 
     assert_eq!(app.form_description, "GRUB");
@@ -348,9 +342,30 @@ fn tui_wizard_submit_creates_entry() {
 fn tui_wizard_all_templates_valid() {
     use uefibootmgrrs::tui::app::WizardTemplate;
 
-    for (i, template) in WizardTemplate::ALL.iter().enumerate() {
-        assert!(!template.label().is_empty(), "template {i} has empty label");
-        assert!(!template.description().is_empty(), "template {i} has empty description");
-        assert!(template.loader().ends_with(".efi"), "template {i} loader should end with .efi");
+    for (i, template) in WizardTemplate::defaults().iter().enumerate() {
+        assert!(!template.label.is_empty(), "template {i} has empty label");
+        assert!(!template.description.is_empty(), "template {i} has empty description");
+        assert!(template.loader.ends_with(".efi"), "template {i} loader should end with .efi");
     }
+}
+
+#[test]
+fn tui_wizard_load_custom_json() {
+    use uefibootmgrrs::tui::app::WizardTemplate;
+
+    let custom = vec![
+        WizardTemplate {
+            label: "Custom OS".into(),
+            description: "My OS".into(),
+            loader: r"\EFI\custom\boot.efi".into(),
+        },
+    ];
+    let json = serde_json::to_string_pretty(&custom).unwrap();
+
+    // Verify round-trip
+    let parsed: Vec<WizardTemplate> = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed.len(), 1);
+    assert_eq!(parsed[0].label, "Custom OS");
+    assert_eq!(parsed[0].description, "My OS");
+    assert_eq!(parsed[0].loader, r"\EFI\custom\boot.efi");
 }

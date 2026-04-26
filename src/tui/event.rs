@@ -3,7 +3,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::prelude::*;
 use std::time::Duration;
 
-use super::app::{App, FormField, View, WizardTemplate};
+use super::app::{App, FormField, View};
 use super::views;
 
 pub fn run_event_loop(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, app: &mut App) -> Result<()> {
@@ -178,7 +178,7 @@ fn handle_wizard_key(app: &mut App, key: KeyEvent) {
             }
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            if app.wizard_selected + 1 < WizardTemplate::ALL.len() {
+            if app.wizard_selected + 1 < app.wizard_templates.len() {
                 app.wizard_selected += 1;
             }
         }
